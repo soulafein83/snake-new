@@ -40,6 +40,7 @@ from snake.config import (
     WINDOW_W,
 )
 from snake.core.game import Game, State
+from snake.fx import ParticleSystem
 from snake.menu import ITEMS, MenuModel, MenuScreen
 from snake.settings import Settings
 from snake.ui import Transition, clamp, ease_out_cubic, lerp, lerp_color
@@ -89,11 +90,16 @@ class Renderer:
     def __init__(
         self, screen: pygame.Surface, assets: Assets, settings: Settings | None = None
     ) -> None:
-        self.screen = screen
+        self.real_screen = screen
+        self.scene = pygame.Surface((WINDOW_W, WINDOW_H))
+        self.screen = self.scene
+        self.particles = ParticleSystem()
+        self.shake = 0.0
         self.assets = assets
         self.settings = settings or Settings()
         self.apply_theme(self.settings.theme)
         self.now = 0.0
+        self.last_now = 0.0
         self.title_y = TITLE_Y
 
         self.font_title = assets.font(74, bold=True)
@@ -138,6 +144,24 @@ class Renderer:
             for screen_name, layout in self.menu_layouts.items()
         }
 
+    def burst(self, cell: tuple[int, int], color: tuple[int, int, int]) -> None:
+        if self.settings.reduced_motion:
+            return
+        x = cell[0] * CELL + CELL // 2
+        y = BOARD_TOP + cell[1] * CELL + CELL // 2
+        self.particles.burst(x, y, color)
+
+    def end_burst(self, game: Game) -> None:
+        color = self.c("COLOR_DANGER") if game.state is State.GAME_OVER else self.c("COLOR_ACCENT")
+        self.burst(game.snake.head, color)
+        self.shake = 6.0 if not self.settings.reduced_motion else 0.0
+
+    def refresh_theme_surfaces(self) -> None:
+        self.board_bg = self._build_board_bg()
+        self.hud_bg = self._build_hud_bg()
+        self.menu_bg = self._build_menu_bg()
+        self.food_glow = self._build_glow(48, self.c("COLOR_FOOD_GLOW"))
+
     def c(self, name: str) -> tuple[int, int, int]:
         return self.colors[name]
 
@@ -174,6 +198,10 @@ class Renderer:
         fade: Transition | None = None,
     ) -> None:
         self.now = pygame.time.get_ticks() / 1000.0
+        frame_dt = max(0.0, min(self.now - self.last_now, 0.1))
+        self.last_now = self.now
+        self.particles.update(frame_dt)
+        self.shake = max(0.0, self.shake - frame_dt * 45.0)
 
         if game.state is State.MENU:
             self._draw_menu_scene(game, menu)
@@ -188,10 +216,19 @@ class Renderer:
                 self._draw_dim(115)
                 self._draw_overlay_panel(game, menu)
 
+        self.particles.draw(self.scene)
+
         if fade is not None and fade.alpha > 0:
             self.fade_surface.set_alpha(fade.alpha)
             self.screen.blit(self.fade_surface, (0, 0))
             self.fade_surface.set_alpha(255)
+
+        self.real_screen.fill(self.c("COLOR_BLACK"))
+        dx = dy = 0
+        if self.shake > 0 and not self.settings.reduced_motion:
+            dx = int(math.sin(self.now * 83.0) * self.shake)
+            dy = int(math.cos(self.now * 71.0) * self.shake)
+        self.real_screen.blit(self.scene, (dx, dy))
 
     def menu_button_rects(
         self, screen_name: MenuScreen, menu: MenuModel | None = None
@@ -207,12 +244,12 @@ class Renderer:
     # ------------------------------------------------------------- background
     def _build_board_bg(self) -> pygame.Surface:
         surface = pygame.Surface((WINDOW_W, ROWS * CELL))
-        surface.fill((17, 24, 31))
+        surface.fill(self.c("COLOR_BG"))
         for y in range(ROWS):
             for x in range(COLS):
                 rect = pygame.Rect(x * CELL, y * CELL, CELL, CELL)
                 if (x + y) % 2 == 0:
-                    surface.fill((20, 28, 36), rect)
+                    surface.fill(self.c("COLOR_GRID_FAINT"), rect)
                 pygame.draw.rect(surface, self.c("COLOR_GRID_FAINT"), rect, width=1)
         pygame.draw.line(surface, self.c("COLOR_GRID"), (0, 0), (WINDOW_W, 0))
         pygame.draw.line(
@@ -228,8 +265,8 @@ class Renderer:
 
     def _build_menu_bg(self) -> pygame.Surface:
         surface = pygame.Surface((WINDOW_W, WINDOW_H))
-        top = (12, 19, 27)
-        bottom = (19, 35, 45)
+        top = self.c("COLOR_PANEL")
+        bottom = self.c("COLOR_BG")
         for y in range(WINDOW_H):
             t = y / max(1, WINDOW_H - 1)
             pygame.draw.line(surface, lerp_color(top, bottom, t), (0, y), (WINDOW_W, y))
@@ -452,10 +489,9 @@ class Renderer:
         offset_x = int((menu.time * 7) % CELL) if not self.settings.reduced_motion else 0
         offset_y = int((menu.time * 5) % CELL) if not self.settings.reduced_motion else 0
         for x in range(-CELL + offset_x, WINDOW_W, CELL):
-            pygame.draw.line(self.screen, (31, 45, 56), (x, 0), (x, WINDOW_H))
+            pygame.draw.line(self.screen, self.c("COLOR_GRID"), (x, 0), (x, WINDOW_H))
         for y in range(-CELL + offset_y, WINDOW_H, CELL):
-            pygame.draw.line(self.screen, (28, 40, 50), (0, y), (WINDOW_W, y))
-
+            pygame.draw.line(self.screen, self.c("COLOR_GRID_FAINT"), (0, y), (WINDOW_W, y))
         self._draw_ghost_snake(menu)
         self.screen.blit(self.vignette, (0, 0))
 

@@ -144,6 +144,7 @@ class Application:
 
             if self.game.score != before:
                 self.audio.play("eat")
+                self.renderer.burst(self.game.snake.head, self.renderer.c("COLOR_FOOD"))
 
             if self.game.state is not State.PLAYING:
                 self.accumulator = 0.0
@@ -157,6 +158,7 @@ class Application:
             self.accumulator = min(self.accumulator, MAX_CATCHUP_STEPS * self.game.step_interval)
 
     def _on_run_finished(self) -> None:
+        self.renderer.end_burst(self.game)
         if self.game.state is State.WON:
             self.menu.set_screen(MenuScreen.WON)
             self.audio.play("win")
@@ -311,6 +313,7 @@ class Application:
         self.menu.settings = self.settings
         self.renderer.settings = self.settings
         self.renderer.apply_theme(self.settings.theme)
+        self.renderer.refresh_theme_surfaces()
         self.audio.enabled = AUDIO_ENABLED and self.settings.audio
         self.game.wrap_around = self.settings.wrap_around
         self.menu.set_screen(MenuScreen.SETTINGS)

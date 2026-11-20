@@ -53,12 +53,12 @@
 - [x] Power‑upy działają end‑to‑end, brak regresji w core
 
 ## Phase 8: Polerka wizualna
-- [ ] Task 17: Cząsteczki i screen shake
-- [ ] Task 18: Animacje zakończenia rundy
-- [ ] Task 19: Tła i siatka per motyw
+- [x] Task 17: Cząsteczki i screen shake
+- [x] Task 18: Animacje zakończenia rundy
+- [x] Task 19: Tła i siatka per motyw
 
 ## Checkpoint: Wizualia
-- [ ] Spójny wygląd we wszystkich motywach, brak regresji FPS
+- [x] Spójny wygląd we wszystkich motywach, brak regresji FPS
 
 ## Phase 9: Progresja i meta
 - [ ] Task 20: Poziomy / etapy
