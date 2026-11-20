@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from snake.config import FOCUS_EASE, PANEL_ANIM_S
+from snake.settings import Settings
 
 
 class MenuScreen(Enum):
@@ -16,6 +17,7 @@ class MenuScreen(Enum):
     WON = "won"
     DIFFICULTY = "difficulty"
     SCORES = "scores"
+    SETTINGS = "settings"
 
 
 class MenuAction(Enum):
@@ -33,6 +35,12 @@ class MenuAction(Enum):
     SELECT_DIFFICULTY = "select_difficulty"
     OPEN_SCORES = "open_scores"
     CLOSE_SCORES = "close_scores"
+    OPEN_SETTINGS = "open_settings"
+    CLOSE_SETTINGS = "close_settings"
+    SETTING_AUDIO = "setting_audio"
+    SETTING_REDUCED_MOTION = "setting_reduced_motion"
+    SETTING_WRAP_AROUND = "setting_wrap_around"
+    SETTING_THEME = "setting_theme"
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +58,7 @@ ITEMS: dict[MenuScreen, tuple[MenuItem, ...]] = {
         MenuItem("Play", MenuAction.PLAY, "Enter"),
         MenuItem("Resume", MenuAction.RESUME_GAME, "Enter"),
         MenuItem("Scores", MenuAction.OPEN_SCORES, "Enter"),
+        MenuItem("Settings", MenuAction.OPEN_SETTINGS, "Enter"),
         MenuItem("Difficulty", MenuAction.OPEN_DIFFICULTY, "Enter"),
         MenuItem("How to Play", MenuAction.OPEN_HELP, "Enter"),
         MenuItem("Quit", MenuAction.QUIT, "Esc"),
@@ -62,6 +71,13 @@ ITEMS: dict[MenuScreen, tuple[MenuItem, ...]] = {
         MenuItem("Back", MenuAction.CLOSE_DIFFICULTY, "Esc"),
     ),
     MenuScreen.SCORES: (MenuItem("Back", MenuAction.CLOSE_SCORES, "Esc"),),
+    MenuScreen.SETTINGS: (
+        MenuItem("Audio", MenuAction.SETTING_AUDIO),
+        MenuItem("Reduced Motion", MenuAction.SETTING_REDUCED_MOTION),
+        MenuItem("Wrap Around", MenuAction.SETTING_WRAP_AROUND),
+        MenuItem("Theme", MenuAction.SETTING_THEME),
+        MenuItem("Back", MenuAction.CLOSE_SETTINGS, "Esc"),
+    ),
     MenuScreen.PAUSE: (
         MenuItem("Resume", MenuAction.RESUME, "Esc"),
         MenuItem("Restart", MenuAction.RESTART, "R"),
@@ -82,7 +98,8 @@ ITEMS: dict[MenuScreen, tuple[MenuItem, ...]] = {
 
 
 class MenuModel:
-    def __init__(self) -> None:
+    def __init__(self, settings: Settings | None = None) -> None:
+        self.settings = settings or Settings()
         self.time = 0.0
         self.screen = MenuScreen.MAIN
         self.items: list[MenuItem] = []
@@ -95,6 +112,21 @@ class MenuModel:
     def set_screen(self, screen: MenuScreen) -> None:
         self.screen = screen
         self.items = list(ITEMS[screen])
+        if screen is MenuScreen.SETTINGS:
+            s = self.settings
+            self.items = [
+                MenuItem(f"Audio: {'On' if s.audio else 'Off'}", MenuAction.SETTING_AUDIO),
+                MenuItem(
+                    f"Reduced Motion: {'On' if s.reduced_motion else 'Off'}",
+                    MenuAction.SETTING_REDUCED_MOTION,
+                ),
+                MenuItem(
+                    f"Wrap Around: {'On' if s.wrap_around else 'Off'}",
+                    MenuAction.SETTING_WRAP_AROUND,
+                ),
+                MenuItem(f"Theme: {s.theme.title()}", MenuAction.SETTING_THEME),
+                MenuItem("Back", MenuAction.CLOSE_SETTINGS, "Esc"),
+            ]
         self.selected = 0
         self.focus_t = [0.0 for _ in self.items]
         self.open_t = 0.0
@@ -123,6 +155,8 @@ class MenuModel:
             return MenuAction.CLOSE_DIFFICULTY
         if self.screen is MenuScreen.SCORES:
             return MenuAction.CLOSE_SCORES
+        if self.screen is MenuScreen.SETTINGS:
+            return MenuAction.CLOSE_SETTINGS
         if self.screen is MenuScreen.PAUSE:
             return MenuAction.RESUME
         if self.screen in (MenuScreen.GAME_OVER, MenuScreen.WON):

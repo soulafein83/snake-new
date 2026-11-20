@@ -24,7 +24,15 @@ from snake.config import (
 from snake.core.game import Game, State
 from snake.input import Intent, direction_for, map_event
 from snake.menu import MenuAction, MenuModel, MenuScreen
-from snake.persistence import delete_save, load_game, load_high_scores, save_game, save_high_scores
+from snake.persistence import (
+    delete_save,
+    load_game,
+    load_high_scores,
+    load_settings,
+    save_game,
+    save_high_scores,
+    save_settings,
+)
 from snake.render import Renderer
 from snake.ui import Transition
 
@@ -47,9 +55,10 @@ class Application:
         pygame.display.set_caption("Snake — Classic")
         self.screen = pygame.display.set_mode((WINDOW_W, WINDOW_H))
         self._set_icon()
+        self.settings = load_settings()
         self.assets = Assets()
-        self.renderer = Renderer(self.screen, self.assets)
-        self.audio = Audio(enabled=AUDIO_ENABLED)
+        self.renderer = Renderer(self.screen, self.assets, self.settings)
+        self.audio = Audio(enabled=AUDIO_ENABLED and self.settings.audio)
         self.clock = pygame.time.Clock()
 
         self.difficulty = "Normal"
@@ -58,6 +67,7 @@ class Application:
             base_step=DIFFICULTY_BASE_STEP[self.difficulty],
             difficulty=self.difficulty,
             obstacles=DIFFICULTY_OBSTACLES[self.difficulty],
+            wrap_around=self.settings.wrap_around,
         )
         saved = load_game()
         if saved is not None:
@@ -66,7 +76,7 @@ class Application:
                 self.game = restored
                 self.difficulty = self.game.difficulty
 
-        self.menu = MenuModel()
+        self.menu = MenuModel(self.settings)
         self.transition = Transition()
         self.accumulator = 0.0
         self._pending_intents: list[Intent] = []
@@ -257,6 +267,25 @@ class Application:
             self.menu.set_screen(MenuScreen.SCORES)
         elif action is MenuAction.CLOSE_SCORES:
             self.menu.set_screen(MenuScreen.MAIN)
+        elif action is MenuAction.OPEN_SETTINGS:
+            self.menu.set_screen(MenuScreen.SETTINGS)
+        elif action is MenuAction.CLOSE_SETTINGS:
+            self.menu.set_screen(MenuScreen.MAIN)
+        elif action is MenuAction.SETTING_AUDIO:
+            self._toggle_setting("audio")
+        elif action is MenuAction.SETTING_REDUCED_MOTION:
+            self._toggle_setting("reduced_motion")
+        elif action is MenuAction.SETTING_WRAP_AROUND:
+            self._toggle_setting("wrap_around")
+        elif action is MenuAction.SETTING_THEME:
+            self.settings = self.settings.updated(
+                theme={
+                    "classic": "neon",
+                    "neon": "retro",
+                    "retro": "classic",
+                }.get(self.settings.theme, "classic")
+            )
+            self._commit_settings()
         elif action is MenuAction.SELECT_DIFFICULTY:
             index = self.menu.selected
             if 0 <= index < len(DIFFICULTIES):
@@ -266,8 +295,22 @@ class Application:
                     base_step=DIFFICULTY_BASE_STEP[self.difficulty],
                     difficulty=self.difficulty,
                     obstacles=DIFFICULTY_OBSTACLES[self.difficulty],
+                    wrap_around=self.settings.wrap_around,
                 )
             self.menu.set_screen(MenuScreen.MAIN)
+
+    def _toggle_setting(self, name: str) -> None:
+        self.settings = self.settings.updated(**{name: not getattr(self.settings, name)})
+        self._commit_settings()
+
+    def _commit_settings(self) -> None:
+        save_settings(self.settings)
+        self.menu.settings = self.settings
+        self.renderer.settings = self.settings
+        self.renderer.apply_theme(self.settings.theme)
+        self.audio.enabled = AUDIO_ENABLED and self.settings.audio
+        self.game.wrap_around = self.settings.wrap_around
+        self.menu.set_screen(MenuScreen.SETTINGS)
 
     def _toggle_pause(self) -> None:
         if self.game.state is State.PLAYING:

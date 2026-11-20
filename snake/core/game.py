@@ -44,6 +44,7 @@ class Game:
         base_step: float | None = None,
         difficulty: str = "Normal",
         obstacles: int = 0,
+        wrap_around: bool = False,
     ) -> None:
         if high_scores is None:
             high_scores = [high_score] if high_score and high_score > 0 else []
@@ -55,6 +56,7 @@ class Game:
         self.base_step = base_step if base_step is not None else BASE_STEP
         self.difficulty = difficulty
         self.obstacle_count = max(0, int(obstacles))
+        self.wrap_around = bool(wrap_around)
         self._rng = rng if rng is not None else random.Random(seed)
         self.obstacles: set[Cell] = set()
         self.state = State.MENU
@@ -87,6 +89,7 @@ class Game:
             "difficulty": self.difficulty,
             "base_step": self.base_step,
             "obstacle_count": self.obstacle_count,
+            "wrap_around": self.wrap_around,
             "score": self.score,
             "foods_eaten": self.foods_eaten,
             "step_interval": self.step_interval,
@@ -114,6 +117,7 @@ class Game:
                 base_step=base_step,
                 difficulty=difficulty,
                 obstacles=int(data.get("obstacle_count", 0)),
+                wrap_around=bool(data.get("wrap_around", False)),
             )
             game.score = int(data.get("score", 0))
             game.foods_eaten = int(data.get("foods_eaten", 0))
@@ -224,16 +228,17 @@ class Game:
         self.prev_body = list(self.snake.body)
         new_head = self.snake.next_head()
 
-        if not self._inside(new_head):
+        if self.wrap_around:
+            new_head = (new_head[0] % COLS, new_head[1] % ROWS)
+        elif not self._inside(new_head):
             return self._finish(State.GAME_OVER)
-
         growing = new_head == self.food.position
         if new_head in self.obstacles:
             return self._finish(State.GAME_OVER)
         tail = self.snake.tail
         if new_head in self.snake.occupied and not (new_head == tail and not growing):
             return self._finish(State.GAME_OVER)
-        self.snake.advance(grow=growing)
+        self.snake.advance(grow=growing, target=new_head)
 
         if growing:
             self.score += SCORE_PER_FOOD

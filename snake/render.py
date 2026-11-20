@@ -30,14 +30,15 @@ from snake.config import (
     COLS,
     GHOST_SPEED,
     HUD_H,
-    REDUCED_MOTION,
     ROWS,
     SMOOTH_MOTION,
+    THEMES,
     WINDOW_H,
     WINDOW_W,
 )
 from snake.core.game import Game, State
 from snake.menu import ITEMS, MenuModel, MenuScreen
+from snake.settings import Settings
 from snake.ui import Transition, clamp, ease_out_cubic, lerp, lerp_color
 
 BUTTON_W = 320
@@ -67,6 +68,7 @@ _HEADERS = {
     MenuScreen.WON: "YOU WIN",
     MenuScreen.DIFFICULTY: "DIFFICULTY",
     MenuScreen.SCORES: "TOP SCORES",
+    MenuScreen.SETTINGS: "SETTINGS",
 }
 
 
@@ -81,9 +83,13 @@ class MenuLayout:
 
 
 class Renderer:
-    def __init__(self, screen: pygame.Surface, assets: Assets) -> None:
+    def __init__(
+        self, screen: pygame.Surface, assets: Assets, settings: Settings | None = None
+    ) -> None:
         self.screen = screen
         self.assets = assets
+        self.settings = settings or Settings()
+        self.apply_theme(self.settings.theme)
         self.now = 0.0
         self.title_y = TITLE_Y
 
@@ -101,11 +107,11 @@ class Renderer:
         self.hud_bg = self._build_hud_bg()
         self.menu_bg = self._build_menu_bg()
         self.vignette = self._build_vignette()
-        self.food_glow = self._build_glow(48, COLOR_FOOD_GLOW)
+        self.food_glow = self._build_glow(48, self.c("COLOR_FOOD_GLOW"))
         self.glow_green = self._build_glow(240, (30, 180, 120), 48)
         self.glow_teal = self._build_glow(280, (30, 120, 150), 34)
         self.fade_surface = pygame.Surface((WINDOW_W, WINDOW_H))
-        self.fade_surface.fill(COLOR_BLACK)
+        self.fade_surface.fill(self.c("COLOR_BLACK"))
         self.dim_surface = pygame.Surface((WINDOW_W, WINDOW_H), pygame.SRCALPHA)
         self.ghost_layer = pygame.Surface((WINDOW_W, WINDOW_H), pygame.SRCALPHA)
         self.ghost_path = self._build_ghost_path()
@@ -127,6 +133,30 @@ class Renderer:
                 layout.panel.height,
             )
             for screen_name, layout in self.menu_layouts.items()
+        }
+
+    def c(self, name: str) -> tuple[int, int, int]:
+        return self.colors[name]
+
+    def apply_theme(self, theme: str) -> None:
+        self.colors = {
+            "COLOR_ACCENT": COLOR_ACCENT,
+            "COLOR_BG": COLOR_BG,
+            "COLOR_BLACK": COLOR_BLACK,
+            "COLOR_DANGER": COLOR_DANGER,
+            "COLOR_FOOD": COLOR_FOOD,
+            "COLOR_FOOD_GLOW": COLOR_FOOD_GLOW,
+            "COLOR_GRID": COLOR_GRID,
+            "COLOR_GRID_FAINT": COLOR_GRID_FAINT,
+            "COLOR_MUTED": COLOR_MUTED,
+            "COLOR_OBSTACLE": COLOR_OBSTACLE,
+            "COLOR_PANEL": COLOR_PANEL,
+            "COLOR_SNAKE": COLOR_SNAKE,
+            "COLOR_SNAKE_HEAD": COLOR_SNAKE_HEAD,
+            "COLOR_SNAKE_TAIL": COLOR_SNAKE_TAIL,
+            "COLOR_TEXT": COLOR_TEXT,
+            "COLOR_WHITE": COLOR_WHITE,
+            **THEMES.get(theme, {}),
         }
 
     # ------------------------------------------------------------------ draw
@@ -177,15 +207,17 @@ class Renderer:
                 rect = pygame.Rect(x * CELL, y * CELL, CELL, CELL)
                 if (x + y) % 2 == 0:
                     surface.fill((20, 28, 36), rect)
-                pygame.draw.rect(surface, COLOR_GRID_FAINT, rect, width=1)
-        pygame.draw.line(surface, COLOR_GRID, (0, 0), (WINDOW_W, 0))
-        pygame.draw.line(surface, COLOR_GRID, (0, ROWS * CELL - 1), (WINDOW_W, ROWS * CELL - 1))
+                pygame.draw.rect(surface, self.c("COLOR_GRID_FAINT"), rect, width=1)
+        pygame.draw.line(surface, self.c("COLOR_GRID"), (0, 0), (WINDOW_W, 0))
+        pygame.draw.line(
+            surface, self.c("COLOR_GRID"), (0, ROWS * CELL - 1), (WINDOW_W, ROWS * CELL - 1)
+        )
         return surface
 
     def _build_hud_bg(self) -> pygame.Surface:
         surface = pygame.Surface((WINDOW_W, HUD_H))
-        surface.fill(COLOR_BG)
-        pygame.draw.line(surface, COLOR_GRID, (0, HUD_H - 1), (WINDOW_W, HUD_H - 1))
+        surface.fill(self.c("COLOR_BG"))
+        pygame.draw.line(surface, self.c("COLOR_GRID"), (0, HUD_H - 1), (WINDOW_W, HUD_H - 1))
         return surface
 
     def _build_menu_bg(self) -> pygame.Surface:
@@ -242,7 +274,7 @@ class Renderer:
         result: list[tuple[pygame.Surface, pygame.Surface, int]] = []
         for index, char in enumerate(text):
             t = index / max(1, len(text) - 1)
-            color = lerp_color(COLOR_SNAKE, COLOR_ACCENT, t)
+            color = lerp_color(self.c("COLOR_SNAKE"), self.c("COLOR_ACCENT"), t)
             glyph = self.font_title.render(char, True, color)
             small = pygame.transform.smoothscale(
                 glyph, (max(1, glyph.get_width() // 3), max(1, glyph.get_height() // 3))
@@ -281,7 +313,7 @@ class Renderer:
         panel = pygame.Surface((width, height), pygame.SRCALPHA)
         pygame.draw.rect(
             panel,
-            (*COLOR_PANEL, 238),
+            (*self.c("COLOR_PANEL"), 238),
             (0, 0, width, height),
             border_radius=PANEL_RADIUS,
         )
@@ -390,7 +422,7 @@ class Renderer:
     def _draw_title(self, menu: MenuModel) -> None:
         for index, (glyph, glow, x) in enumerate(self.title_letters):
             bob = 0
-            if not REDUCED_MOTION:
+            if not self.settings.reduced_motion:
                 bob = round(math.sin(menu.time * 1.8 + index * 0.4) * 3)
             y = self.title_y + bob
             self.screen.blit(glow, (x - 3, y - 3))
@@ -400,7 +432,7 @@ class Renderer:
     def _draw_backdrop(self, menu: MenuModel) -> None:
         self.screen.blit(self.menu_bg, (0, 0))
 
-        if not REDUCED_MOTION:
+        if not self.settings.reduced_motion:
             gx = int(-80 + math.sin(menu.time * 0.24) * 40)
             gy = int(-40 + math.cos(menu.time * 0.19) * 30)
             tx = int(WINDOW_W - 380 + math.cos(menu.time * 0.17) * 50)
@@ -411,8 +443,8 @@ class Renderer:
         self.screen.blit(self.glow_green, (gx, gy))
         self.screen.blit(self.glow_teal, (tx, ty))
 
-        offset_x = int((menu.time * 7) % CELL) if not REDUCED_MOTION else 0
-        offset_y = int((menu.time * 5) % CELL) if not REDUCED_MOTION else 0
+        offset_x = int((menu.time * 7) % CELL) if not self.settings.reduced_motion else 0
+        offset_y = int((menu.time * 5) % CELL) if not self.settings.reduced_motion else 0
         for x in range(-CELL + offset_x, WINDOW_W, CELL):
             pygame.draw.line(self.screen, (31, 45, 56), (x, 0), (x, WINDOW_H))
         for y in range(-CELL + offset_y, WINDOW_H, CELL):
@@ -424,7 +456,7 @@ class Renderer:
     def _draw_ghost_snake(self, menu: MenuModel) -> None:
         if not self.ghost_path:
             return
-        advance = 0 if REDUCED_MOTION else int(menu.time * GHOST_SPEED)
+        advance = 0 if self.settings.reduced_motion else int(menu.time * GHOST_SPEED)
         head = advance % len(self.ghost_path)
         self.ghost_layer.fill((0, 0, 0, 0))
         trail = 15
@@ -439,7 +471,9 @@ class Renderer:
                 CELL - 4,
                 CELL - 4,
             )
-            pygame.draw.rect(self.ghost_layer, (*COLOR_ACCENT, alpha), rect, border_radius=8)
+            pygame.draw.rect(
+                self.ghost_layer, (*self.c("COLOR_ACCENT"), alpha), rect, border_radius=8
+            )
         self.screen.blit(self.ghost_layer, (0, 0))
 
     def _draw_overlay_panel(self, game: Game, menu: MenuModel, paused: bool = False) -> None:
@@ -459,7 +493,11 @@ class Renderer:
 
         header = _HEADERS.get(menu.screen)
         if header:
-            color = COLOR_DANGER if menu.screen is MenuScreen.GAME_OVER else COLOR_ACCENT
+            color = (
+                self.c("COLOR_DANGER")
+                if menu.screen is MenuScreen.GAME_OVER
+                else self.c("COLOR_ACCENT")
+            )
             self._draw_text(
                 header,
                 self.font_header,
@@ -527,7 +565,7 @@ class Renderer:
         )
         if game.new_best:
             pulse = 255
-            if not REDUCED_MOTION:
+            if not self.settings.reduced_motion:
                 pulse = int(200 + 55 * (0.5 + 0.5 * math.sin(self.now * 5.0)))
             badge_rect = self.badge.get_rect(center=(panel_rect.centerx, y + 57))
             self._blit(self.badge, badge_rect.topleft, min(alpha, pulse))
@@ -567,7 +605,7 @@ class Renderer:
             )
             return
         for rank, score in enumerate(scores, start=1):
-            color = COLOR_ACCENT if rank == 1 else COLOR_TEXT
+            color = self.c("COLOR_ACCENT") if rank == 1 else self.c("COLOR_TEXT")
             font = self.font_body if rank <= 3 else self.font_small
             self._draw_text(
                 f"{rank}.",
@@ -600,7 +638,7 @@ class Renderer:
         left = panel_rect.x + 34
         right = panel_rect.x + panel_rect.width - 34
         for key, description in rows:
-            self._draw_text(key, self.font_small, COLOR_ACCENT, (left, y), alpha=alpha)
+            self._draw_text(key, self.font_small, self.c("COLOR_ACCENT"), (left, y), alpha=alpha)
             self._draw_text(
                 description,
                 self.font_small,
@@ -643,7 +681,7 @@ class Renderer:
         if focus > 0.02 and alpha > 4:
             width = max(1, round(4 * focus))
             bar = pygame.Surface((width, BUTTON_H - 30), pygame.SRCALPHA)
-            bar.fill((*COLOR_ACCENT, 255))
+            bar.fill((*self.c("COLOR_ACCENT"), 255))
             self._blit(
                 bar,
                 (rect.x + 9, rect.y + 15),
@@ -652,8 +690,8 @@ class Renderer:
 
         shift = round(7 * focus)
         label_pos = (rect.centerx + shift, rect.centery)
-        idle_label = self._text_surface(label, self.font_button, COLOR_TEXT)
-        focused_label = self._text_surface(label, self.font_button, COLOR_ACCENT)
+        idle_label = self._text_surface(label, self.font_button, self.c("COLOR_TEXT"))
+        focused_label = self._text_surface(label, self.font_button, self.c("COLOR_ACCENT"))
 
         idle_rect = idle_label.get_rect(center=label_pos)
         focus_rect = focused_label.get_rect(center=label_pos)
@@ -662,8 +700,8 @@ class Renderer:
             self._blit(focused_label, focus_rect.topleft, int(alpha * focus))
 
         if focus > 0.02:
-            bob = round(math.sin(self.now * 6.0) * 2) if not REDUCED_MOTION else 0
-            chevron = self._text_surface("›", self.font_header, COLOR_ACCENT)
+            bob = round(math.sin(self.now * 6.0) * 2) if not self.settings.reduced_motion else 0
+            chevron = self._text_surface("›", self.font_header, self.c("COLOR_ACCENT"))
             chevron_rect = chevron.get_rect(midright=(rect.right - 22, rect.centery + bob))
             self._blit(chevron, chevron_rect.topleft, int(alpha * min(1.0, focus * 1.8)))
 
@@ -677,7 +715,7 @@ class Renderer:
     def _draw_obstacles(self, game: Game) -> None:
         for x, y in game.obstacles:
             rect = pygame.Rect(x * CELL + 3, BOARD_TOP + y * CELL + 3, CELL - 6, CELL - 6)
-            pygame.draw.rect(self.screen, COLOR_OBSTACLE, rect, border_radius=6)
+            pygame.draw.rect(self.screen, self.c("COLOR_OBSTACLE"), rect, border_radius=6)
             pygame.draw.rect(self.screen, (70, 90, 105), rect, width=1, border_radius=6)
 
     def _draw_food(self, game: Game) -> None:
@@ -686,14 +724,14 @@ class Renderer:
         x, y = game.food.position
         center = (x * CELL + CELL // 2, BOARD_TOP + y * CELL + CELL // 2)
 
-        pulse = 0.5 + 0.5 * math.sin(self.now * 6.0) if not REDUCED_MOTION else 0.5
+        pulse = 0.5 + 0.5 * math.sin(self.now * 6.0) if not self.settings.reduced_motion else 0.5
         glow = self.food_glow
         glow.set_alpha(int(150 + 80 * pulse))
         self.screen.blit(glow, glow.get_rect(center=center))
         glow.set_alpha(255)
 
-        radius = 9 + (1.5 * pulse if not REDUCED_MOTION else 0.0)
-        pygame.draw.circle(self.screen, COLOR_FOOD, center, round(radius))
+        radius = 9 + (1.5 * pulse if not self.settings.reduced_motion else 0.0)
+        pygame.draw.circle(self.screen, self.c("COLOR_FOOD"), center, round(radius))
         pygame.draw.circle(
             self.screen,
             (255, 156, 150),
@@ -720,10 +758,10 @@ class Renderer:
             rect = pygame.Rect(x, y, CELL - 2, CELL - 2)
 
             if index == 0:
-                color = COLOR_SNAKE_HEAD
+                color = self.c("COLOR_SNAKE_HEAD")
             else:
                 t = index / max(1, length - 1)
-                color = lerp_color(COLOR_SNAKE, COLOR_SNAKE_TAIL, t * 0.75)
+                color = lerp_color(self.c("COLOR_SNAKE"), self.c("COLOR_SNAKE_TAIL"), t * 0.75)
             pygame.draw.rect(self.screen, color, rect, border_radius=8)
 
             if index == 0:
@@ -736,7 +774,7 @@ class Renderer:
         for side in (-1, 1):
             ex = cx + dx * 5 + px * 5 * side
             ey = cy + dy * 5 + py * 5 * side
-            pygame.draw.circle(self.screen, COLOR_WHITE, (int(ex), int(ey)), 3)
+            pygame.draw.circle(self.screen, self.c("COLOR_WHITE"), (int(ex), int(ey)), 3)
             pygame.draw.circle(
                 self.screen,
                 (18, 34, 26),
@@ -748,11 +786,11 @@ class Renderer:
     def _draw_hud(self, game: Game) -> None:
         self.screen.blit(self.hud_bg, (0, 0))
 
-        self._draw_text("SCORE", self.font_hud_label, COLOR_MUTED, (24, 14), alpha=230)
-        self._draw_text(str(game.score), self.font_hud_value, COLOR_TEXT, (24, 28))
+        self._draw_text("SCORE", self.font_hud_label, self.c("COLOR_MUTED"), (24, 14), alpha=230)
+        self._draw_text(str(game.score), self.font_hud_value, self.c("COLOR_TEXT"), (24, 28))
 
-        self._draw_text("BEST", self.font_hud_label, COLOR_MUTED, (174, 14), alpha=230)
-        self._draw_text(str(game.high_score), self.font_hud_value, COLOR_TEXT, (174, 28))
+        self._draw_text("BEST", self.font_hud_label, self.c("COLOR_MUTED"), (174, 14), alpha=230)
+        self._draw_text(str(game.high_score), self.font_hud_value, self.c("COLOR_TEXT"), (174, 28))
 
         hint = "P / Esc   Pause" if game.state is State.PLAYING else ""
         if hint:
@@ -814,6 +852,8 @@ class Renderer:
             return "Enter  Select      Esc  Back"
         if screen_name is MenuScreen.SCORES:
             return "Esc  Back"
+        if screen_name is MenuScreen.SETTINGS:
+            return "Enter  Change      Esc  Back"
         if screen_name is MenuScreen.PAUSE:
             return "Esc  Resume      Enter  Select"
         return "R  Restart      M  Menu      Esc  Menu"

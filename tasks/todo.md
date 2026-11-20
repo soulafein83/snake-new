@@ -37,12 +37,12 @@
 - [x] Obsługa gamepada
 
 ## Phase 6: Ustawienia i motywy
-- [ ] Task 11: Model ustawień i persistence (`settings.json`)
-- [ ] Task 12: Ekran ustawień w menu
-- [ ] Task 13: Motywy kolorystyczne (classic / neon / retro)
+- [x] Task 11: Model ustawień i persistence (`settings.json`)
+- [x] Task 12: Ekran ustawień w menu
+- [x] Task 13: Motywy kolorystyczne (classic / neon / retro)
 
 ## Checkpoint: Ustawienia i motywy
-- [ ] Ustawienia działają end‑to‑end, motywy nie psują renderu
+- [x] Ustawienia działają end‑to‑end, motywy nie psują renderu
 
 ## Phase 7: Mechanika — power‑upy
 - [ ] Task 14: Model power‑upów i spawn

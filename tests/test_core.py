@@ -108,6 +108,17 @@ def test_game_wall_collision() -> None:
     assert game.state is State.GAME_OVER
 
 
+def test_wrap_around() -> None:
+    game = Game(wrap_around=True)
+    game.start()
+    game.snake = Snake.from_cells([(0, 5)], Direction.LEFT)
+    game.food.position = None
+    game.state = State.PLAYING
+    game.tick()
+    assert game.state is State.PLAYING
+    assert game.snake.head == (COLS - 1, 5)
+
+
 def test_obstacles_block_movement() -> None:
     game = Game(obstacles=2, rng=random.Random(3))
     game.start()

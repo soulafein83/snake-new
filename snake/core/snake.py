@@ -86,9 +86,9 @@ class Snake:
         return self.pending.popleft() if self.pending else None
 
     # --- Movement ----------------------------------------------------------
-    def advance(self, grow: bool = False) -> Cell:
+    def advance(self, grow: bool = False, target: Cell | None = None) -> Cell:
         """Move one cell forward. Returns the new head cell."""
-        new_head = self.next_head()
+        new_head = target if target is not None else self.next_head()
         if not grow:
             # Remove the tail *before* inserting the head: moving into the
             # cell the tail is vacating is legal, and the cell must not be

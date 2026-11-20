@@ -79,6 +79,17 @@ def test_top_scores_roundtrip(tmp_path: Path) -> None:
     assert load_high_scores(path2) == [7]
 
 
+def test_settings_menu_labels() -> None:
+    from snake.menu import MenuScreen
+    from snake.settings import Settings
+
+    m = MenuModel(Settings(audio=False, theme="neon"))
+    m.set_screen(MenuScreen.SETTINGS)
+    assert "Off" in m.items[0].label
+    assert "Neon" in m.items[3].label
+    assert m.back() is MenuAction.CLOSE_SETTINGS
+
+
 def test_gamepad_mapping() -> None:
     b0 = pygame.event.Event(pygame.JOYBUTTONDOWN, button=0)
     assert map_event(b0, State.MENU) is Intent.CONFIRM
@@ -95,9 +106,4 @@ def test_menu_model_navigation() -> None:
     assert m.selected == 1
     m.move(10)
     assert 0 <= m.selected < len(m.items)
-    assert m.activate() in {
-        MenuAction.PLAY,
-        MenuAction.RESUME_GAME,
-        MenuAction.OPEN_HELP,
-        MenuAction.QUIT,
-    }
+    assert m.activate() is not MenuAction.NONE

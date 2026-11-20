@@ -66,8 +66,43 @@ COLOR_OBSTACLE: Final = (110, 130, 150)
 COLOR_BLACK: Final = (0, 0, 0)
 COLOR_WHITE: Final = (255, 255, 255)
 
+# --- Themes (overrides of the classic palette) -----------------------------
+THEMES: Final = {
+    "classic": {},
+    "neon": {
+        "COLOR_BG": (8, 6, 18),
+        "COLOR_GRID": (80, 40, 140),
+        "COLOR_GRID_FAINT": (40, 24, 72),
+        "COLOR_SNAKE": (255, 80, 200),
+        "COLOR_SNAKE_HEAD": (255, 180, 240),
+        "COLOR_SNAKE_TAIL": (130, 40, 160),
+        "COLOR_FOOD": (80, 255, 220),
+        "COLOR_FOOD_GLOW": (60, 240, 200),
+        "COLOR_ACCENT": (180, 120, 255),
+        "COLOR_PANEL": (14, 8, 28),
+        "COLOR_TEXT": (245, 235, 255),
+        "COLOR_MUTED": (150, 120, 190),
+        "COLOR_OBSTACLE": (110, 70, 160),
+    },
+    "retro": {
+        "COLOR_BG": (18, 18, 12),
+        "COLOR_GRID": (70, 70, 40),
+        "COLOR_GRID_FAINT": (45, 45, 25),
+        "COLOR_SNAKE": (180, 220, 60),
+        "COLOR_SNAKE_HEAD": (230, 255, 120),
+        "COLOR_SNAKE_TAIL": (90, 130, 30),
+        "COLOR_FOOD": (230, 140, 50),
+        "COLOR_FOOD_GLOW": (200, 110, 40),
+        "COLOR_ACCENT": (220, 200, 80),
+        "COLOR_PANEL": (20, 20, 12),
+        "COLOR_TEXT": (235, 230, 180),
+        "COLOR_MUTED": (150, 145, 100),
+        "COLOR_OBSTACLE": (120, 110, 60),
+    },
+}
 # --- Persistence -----------------------------------------------------------
 APP_DIR_NAME: Final = "snake-new"
 HIGHSCORE_FILENAME: Final = "highscore.json"
 GAME_SAVE_FILENAME: Final = "savegame.json"
+SETTINGS_FILENAME: Final = "settings.json"
 DATA_DIR_ENV: Final = "SNAKE_DATA_DIR"

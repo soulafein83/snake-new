@@ -12,7 +12,9 @@ from snake.config import (
     DATA_DIR_ENV,
     GAME_SAVE_FILENAME,
     HIGHSCORE_FILENAME,
+    SETTINGS_FILENAME,
 )
+from snake.settings import Settings
 
 SCHEMA_VERSION = 2
 MAX_HIGH_SCORES = 5
@@ -134,3 +136,30 @@ def delete_save(path: Path | str | None = None) -> None:
     target = Path(path) if path is not None else game_save_path()
     with contextlib.suppress(OSError):
         target.unlink(missing_ok=True)
+
+
+def settings_path() -> Path:
+    return default_data_dir() / SETTINGS_FILENAME
+
+
+def load_settings(path: Path | str | None = None) -> Settings:
+    target = Path(path) if path is not None else settings_path()
+    try:
+        data = json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return Settings()
+    return Settings.from_dict(data)
+
+
+def save_settings(settings: Settings, path: Path | str | None = None) -> bool:
+    target = Path(path) if path is not None else settings_path()
+    tmp = target.with_name(target.name + ".tmp")
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        tmp.write_text(json.dumps(settings.to_dict()), encoding="utf-8")
+        os.replace(tmp, target)
+        return True
+    except OSError:
+        with contextlib.suppress(OSError):
+            tmp.unlink(missing_ok=True)
+        return False
