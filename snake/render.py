@@ -43,6 +43,7 @@ from snake.core.game import Game, State
 from snake.fx import ParticleSystem
 from snake.menu import ITEMS, MenuModel, MenuScreen
 from snake.settings import Settings
+from snake.stats import Stats
 from snake.ui import Transition, clamp, ease_out_cubic, lerp, lerp_color
 
 BUTTON_W = 320
@@ -73,6 +74,7 @@ _HEADERS = {
     MenuScreen.DIFFICULTY: "DIFFICULTY",
     MenuScreen.SCORES: "TOP SCORES",
     MenuScreen.SETTINGS: "SETTINGS",
+    MenuScreen.STATS: "STATISTICS",
 }
 
 
@@ -97,6 +99,7 @@ class Renderer:
         self.shake = 0.0
         self.assets = assets
         self.settings = settings or Settings()
+        self.stats: Stats | None = None
         self.apply_theme(self.settings.theme)
         self.now = 0.0
         self.last_now = 0.0
@@ -378,7 +381,7 @@ class Renderer:
         has_header = screen_name in _HEADERS
         has_stats = screen_name in (MenuScreen.GAME_OVER, MenuScreen.WON)
         has_help = screen_name is MenuScreen.HELP
-        has_scores = screen_name is MenuScreen.SCORES
+        has_scores = screen_name in (MenuScreen.SCORES, MenuScreen.STATS)
 
         header_h = HEADER_H if has_header else 0
         stats_h = STATS_H if has_stats else 0
@@ -425,7 +428,7 @@ class Renderer:
             self._draw_text(
                 "EAT  ·  GROW  ·  SURVIVE",
                 self.font_tiny,
-                COLOR_MUTED,
+                self.c("COLOR_MUTED"),
                 (WINDOW_W // 2, TITLE_Y + 96),
                 anchor="midtop",
             )
@@ -565,6 +568,8 @@ class Renderer:
             self._draw_help_content(layout, panel_rect, content_alpha)
         if menu.screen is MenuScreen.SCORES:
             self._draw_scores_content(game, layout, panel_rect, content_alpha)
+        if menu.screen is MenuScreen.STATS:
+            self._draw_stats_content(layout, panel_rect, content_alpha)
         for index, (item, rect) in enumerate(zip(menu.items, layout.buttons, strict=False)):
             button_rect = rect.move(offset_x, offset_y)
             focus = menu.focus_t[index] if index < len(menu.focus_t) else 0.0
@@ -667,6 +672,29 @@ class Renderer:
             )
             y += 32
 
+    def _draw_stats_content(self, layout: MenuLayout, panel_rect: pygame.Rect, alpha: int) -> None:
+        y = layout.help_y + (panel_rect.y - layout.panel.y) + 12
+        stats = self.stats
+        if stats is None:
+            return
+        rows = (
+            f"Games played   {stats.games_played}",
+            f"Total score    {stats.total_score}",
+            f"Best level     {stats.best_level}",
+            f"Longest snake  {stats.longest_snake}",
+            f"Achievements   {', '.join(stats.achievements) or 'none'}",
+        )
+        for index, row in enumerate(rows):
+            self._draw_text(
+                row,
+                self.font_small if index == 4 else self.font_body,
+                self.c("COLOR_ACCENT") if index == 4 else self.c("COLOR_TEXT"),
+                (panel_rect.centerx, y),
+                anchor="midtop",
+                alpha=alpha,
+            )
+            y += 30
+
     def _draw_help_content(self, layout: MenuLayout, panel_rect: pygame.Rect, alpha: int) -> None:
         y = layout.help_y + (panel_rect.y - layout.panel.y) + 6
         rows = (
@@ -684,7 +712,7 @@ class Renderer:
             self._draw_text(
                 description,
                 self.font_small,
-                COLOR_MUTED,
+                self.c("COLOR_MUTED"),
                 (right, y),
                 anchor="topright",
                 alpha=alpha,
@@ -851,6 +879,14 @@ class Renderer:
     def _draw_hud(self, game: Game) -> None:
         self.screen.blit(self.hud_bg, (0, 0))
 
+        self._draw_text(
+            f"LEVEL {game.level}",
+            self.font_hud_label,
+            self.c("COLOR_ACCENT"),
+            (WINDOW_W // 2, 14),
+            anchor="midtop",
+            alpha=230,
+        )
         self._draw_text("SCORE", self.font_hud_label, self.c("COLOR_MUTED"), (24, 14), alpha=230)
         self._draw_text(str(game.score), self.font_hud_value, self.c("COLOR_TEXT"), (24, 28))
 
@@ -933,6 +969,8 @@ class Renderer:
             return "Esc  Back"
         if screen_name is MenuScreen.SETTINGS:
             return "Enter  Change      Esc  Back"
+        if screen_name is MenuScreen.STATS:
+            return "Esc  Back"
         if screen_name is MenuScreen.PAUSE:
             return "Esc  Resume      Enter  Select"
         return "R  Restart      M  Menu      Esc  Menu"

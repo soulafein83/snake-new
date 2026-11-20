@@ -29,9 +29,11 @@ from snake.persistence import (
     load_game,
     load_high_scores,
     load_settings,
+    load_stats,
     save_game,
     save_high_scores,
     save_settings,
+    save_stats,
 )
 from snake.render import Renderer
 from snake.ui import Transition
@@ -57,8 +59,10 @@ class Application:
         self.screen = pygame.display.set_mode((WINDOW_W, WINDOW_H))
         self._set_icon()
         self.settings = load_settings()
+        self.stats = load_stats()
         self.assets = Assets()
         self.renderer = Renderer(self.screen, self.assets, self.settings)
+        self.renderer.stats = self.stats
         self.audio = Audio(enabled=AUDIO_ENABLED and self.settings.audio)
         self.clock = pygame.time.Clock()
 
@@ -166,6 +170,9 @@ class Application:
             self.menu.set_screen(MenuScreen.GAME_OVER)
             self.audio.play("over")
         save_high_scores(self.game.high_scores)
+        self.stats.record_run(self.game)
+        save_stats(self.stats)
+        self.renderer.stats = self.stats
         delete_save()
         self._update_cursor(False)
 
@@ -274,6 +281,10 @@ class Application:
         elif action is MenuAction.OPEN_SETTINGS:
             self.menu.set_screen(MenuScreen.SETTINGS)
         elif action is MenuAction.CLOSE_SETTINGS:
+            self.menu.set_screen(MenuScreen.MAIN)
+        elif action is MenuAction.OPEN_STATS:
+            self.menu.set_screen(MenuScreen.STATS)
+        elif action is MenuAction.CLOSE_STATS:
             self.menu.set_screen(MenuScreen.MAIN)
         elif action is MenuAction.SETTING_AUDIO:
             self._toggle_setting("audio")

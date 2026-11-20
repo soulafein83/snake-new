@@ -69,6 +69,10 @@ class Game:
         self._reset_run()
 
     @property
+    def level(self) -> int:
+        return 1 + self.foods_eaten // 8
+
+    @property
     def high_score(self) -> int:
         return self._high_scores[0] if self._high_scores else 0
 
@@ -315,9 +319,19 @@ class Game:
         self.snake.advance(grow=growing, target=new_head)
 
         if growing:
+            previous_level = self.level
             self.score += SCORE_PER_FOOD
             self.foods_eaten += 1
             self._recalculate_step_interval()
+            if self.level > previous_level and self.obstacle_count > 0:
+                free = [
+                    (x, y)
+                    for y in range(ROWS)
+                    for x in range(COLS)
+                    if (x, y) not in self.snake.occupied | self.obstacles | {self.food.position}
+                ]
+                if free:
+                    self.obstacles.add(self._power_rng.choice(free))
             self.food.spawn(self.snake.occupied | self.obstacles)
             if self.food.position is None:
                 return self._finish(State.WON)

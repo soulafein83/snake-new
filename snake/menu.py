@@ -18,6 +18,7 @@ class MenuScreen(Enum):
     DIFFICULTY = "difficulty"
     SCORES = "scores"
     SETTINGS = "settings"
+    STATS = "stats"
 
 
 class MenuAction(Enum):
@@ -41,6 +42,8 @@ class MenuAction(Enum):
     SETTING_REDUCED_MOTION = "setting_reduced_motion"
     SETTING_WRAP_AROUND = "setting_wrap_around"
     SETTING_THEME = "setting_theme"
+    OPEN_STATS = "open_stats"
+    CLOSE_STATS = "close_stats"
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,6 +62,7 @@ ITEMS: dict[MenuScreen, tuple[MenuItem, ...]] = {
         MenuItem("Resume", MenuAction.RESUME_GAME, "Enter"),
         MenuItem("Scores", MenuAction.OPEN_SCORES, "Enter"),
         MenuItem("Settings", MenuAction.OPEN_SETTINGS, "Enter"),
+        MenuItem("Statistics", MenuAction.OPEN_STATS, "Enter"),
         MenuItem("Difficulty", MenuAction.OPEN_DIFFICULTY, "Enter"),
         MenuItem("How to Play", MenuAction.OPEN_HELP, "Enter"),
         MenuItem("Quit", MenuAction.QUIT, "Esc"),
@@ -78,6 +82,7 @@ ITEMS: dict[MenuScreen, tuple[MenuItem, ...]] = {
         MenuItem("Theme", MenuAction.SETTING_THEME),
         MenuItem("Back", MenuAction.CLOSE_SETTINGS, "Esc"),
     ),
+    MenuScreen.STATS: (MenuItem("Back", MenuAction.CLOSE_STATS, "Esc"),),
     MenuScreen.PAUSE: (
         MenuItem("Resume", MenuAction.RESUME, "Esc"),
         MenuItem("Restart", MenuAction.RESTART, "R"),
@@ -157,6 +162,8 @@ class MenuModel:
             return MenuAction.CLOSE_SCORES
         if self.screen is MenuScreen.SETTINGS:
             return MenuAction.CLOSE_SETTINGS
+        if self.screen is MenuScreen.STATS:
+            return MenuAction.CLOSE_STATS
         if self.screen is MenuScreen.PAUSE:
             return MenuAction.RESUME
         if self.screen in (MenuScreen.GAME_OVER, MenuScreen.WON):

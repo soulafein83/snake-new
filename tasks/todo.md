@@ -61,10 +61,10 @@
 - [x] Spójny wygląd we wszystkich motywach, brak regresji FPS
 
 ## Phase 9: Progresja i meta
-- [ ] Task 20: Poziomy / etapy
-- [ ] Task 21: Statystyki i osiągnięcia
-- [ ] Task 22: Ekran statystyk w menu
+- [x] Task 20: Poziomy / etapy
+- [x] Task 21: Statystyki i osiągnięcia
+- [x] Task 22: Ekran statystyk w menu
 
 ## Checkpoint: Końcowy
-- [ ] Wszystkie testy przechodzą
-- [ ] Gotowe do review
+- [x] Wszystkie testy przechodzą
+- [x] Gotowe do review
