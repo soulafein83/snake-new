@@ -108,6 +108,26 @@ def test_game_wall_collision() -> None:
     assert game.state is State.GAME_OVER
 
 
+def test_powerup_collection_and_shield() -> None:
+    from snake.core.powerup import PowerUp, PowerUpType
+
+    game = Game(powerups_enabled=True)
+    game.start()
+    game.snake = Snake.from_cells([(5, 5)], Direction.RIGHT)
+    game.food.position = None
+    game.powerup = PowerUp(PowerUpType.SLOW, (6, 5), 20)
+    game.state = State.PLAYING
+    game.tick()
+    assert game.powerup is None
+    assert game.active_effects["slow"] > 0
+
+    game.snake = Snake.from_cells([(COLS - 1, 5)], Direction.RIGHT)
+    game.active_effects["shield"] = 1
+    game.tick()
+    assert game.state is State.PLAYING
+    assert game.active_effects["shield"] == 0
+
+
 def test_wrap_around() -> None:
     game = Game(wrap_around=True)
     game.start()

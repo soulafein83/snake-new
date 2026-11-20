@@ -45,12 +45,12 @@
 - [x] Ustawienia działają end‑to‑end, motywy nie psują renderu
 
 ## Phase 7: Mechanika — power‑upy
-- [ ] Task 14: Model power‑upów i spawn
-- [ ] Task 15: Efekty power‑upów w rozgrywce
-- [ ] Task 16: Render i HUD power‑upów
+- [x] Task 14: Model power‑upów i spawn
+- [x] Task 15: Efekty power‑upów w rozgrywce
+- [x] Task 16: Render i HUD power‑upów
 
 ## Checkpoint: Power‑upy
-- [ ] Power‑upy działają end‑to‑end, brak regresji w core
+- [x] Power‑upy działają end‑to‑end, brak regresji w core
 
 ## Phase 8: Polerka wizualna
 - [ ] Task 17: Cząsteczki i screen shake

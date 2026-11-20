@@ -39,6 +39,7 @@ from snake.ui import Transition
 # Max keyboard intents kept while a fade is running (oldest dropped on
 # overflow); replayed in order once the fade ends.
 PENDING_INTENT_LIMIT = 8
+POWERUP_DIFFICULTIES = frozenset({"Normal", "Hard"})
 
 
 class Application:
@@ -68,6 +69,7 @@ class Application:
             difficulty=self.difficulty,
             obstacles=DIFFICULTY_OBSTACLES[self.difficulty],
             wrap_around=self.settings.wrap_around,
+            powerups_enabled=self.difficulty in POWERUP_DIFFICULTIES,
         )
         saved = load_game()
         if saved is not None:
@@ -296,6 +298,7 @@ class Application:
                     difficulty=self.difficulty,
                     obstacles=DIFFICULTY_OBSTACLES[self.difficulty],
                     wrap_around=self.settings.wrap_around,
+                    powerups_enabled=self.difficulty in POWERUP_DIFFICULTIES,
                 )
             self.menu.set_screen(MenuScreen.MAIN)
 

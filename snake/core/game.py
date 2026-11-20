@@ -17,6 +17,7 @@ from snake.config import (
 )
 from snake.core.direction import Direction
 from snake.core.food import Food
+from snake.core.powerup import PowerUp, PowerUpType
 from snake.core.snake import Cell, Snake
 
 
@@ -45,6 +46,7 @@ class Game:
         difficulty: str = "Normal",
         obstacles: int = 0,
         wrap_around: bool = False,
+        powerups_enabled: bool = False,
     ) -> None:
         if high_scores is None:
             high_scores = [high_score] if high_score and high_score > 0 else []
@@ -57,6 +59,10 @@ class Game:
         self.difficulty = difficulty
         self.obstacle_count = max(0, int(obstacles))
         self.wrap_around = bool(wrap_around)
+        self.powerups_enabled = bool(powerups_enabled)
+        self.powerup: PowerUp | None = None
+        self.active_effects: dict[str, int] = {"slow": 0, "shield": 0}
+        self._power_rng = random.Random()
         self._rng = rng if rng is not None else random.Random(seed)
         self.obstacles: set[Cell] = set()
         self.state = State.MENU
@@ -90,6 +96,9 @@ class Game:
             "base_step": self.base_step,
             "obstacle_count": self.obstacle_count,
             "wrap_around": self.wrap_around,
+            "powerups_enabled": self.powerups_enabled,
+            "powerup": self.powerup.to_dict() if self.powerup else None,
+            "active_effects": dict(self.active_effects),
             "score": self.score,
             "foods_eaten": self.foods_eaten,
             "step_interval": self.step_interval,
@@ -118,6 +127,7 @@ class Game:
                 difficulty=difficulty,
                 obstacles=int(data.get("obstacle_count", 0)),
                 wrap_around=bool(data.get("wrap_around", False)),
+                powerups_enabled=bool(data.get("powerups_enabled", False)),
             )
             game.score = int(data.get("score", 0))
             game.foods_eaten = int(data.get("foods_eaten", 0))
@@ -146,6 +156,13 @@ class Game:
             game.food.position = (
                 tuple(food) if isinstance(food, (list, tuple)) and len(food) == 2 else None
             )
+            effects = data.get("active_effects", {})
+            if isinstance(effects, dict):
+                game.active_effects = {
+                    "slow": max(0, int(effects.get("slow", 0))),
+                    "shield": max(0, int(effects.get("shield", 0))),
+                }
+            game.powerup = PowerUp.from_dict(data.get("powerup"))
             state_value = data.get("state", State.PAUSED.value)
             try:
                 game.state = State(state_value)
@@ -168,6 +185,8 @@ class Game:
         return set(self._rng.sample(free, min(count, len(free))))
 
     def _reset_run(self) -> None:
+        self.powerup = None
+        self.active_effects = {"slow": 0, "shield": 0}
         self.snake = Snake()
         self.obstacles = self._generate_obstacles(self.obstacle_count)
         self.food = Food(self._rng)
@@ -217,6 +236,45 @@ class Game:
         return self.snake.request_turn(direction)
 
     # --- Simulation --------------------------------------------------------
+    def _die_or_shield(self) -> State:
+        if self.active_effects["shield"] > 0:
+            self.active_effects["shield"] -= 1
+            return self.state
+        return self._finish(State.GAME_OVER)
+
+    def _recalculate_step_interval(self) -> None:
+        interval = max(MIN_STEP, round(self.base_step - SPEED_STEP * self.foods_eaten, 4))
+        if self.active_effects["slow"] > 0:
+            interval += 0.06
+        self.step_interval = interval
+
+    def _spawn_powerup(self) -> None:
+        if not self.powerups_enabled or self.foods_eaten % 4 != 0:
+            return
+        if self.powerup is not None:
+            return
+        occupied = self.snake.occupied | self.obstacles
+        if self.food.position is not None:
+            occupied = occupied | {self.food.position}
+        free = [(x, y) for y in range(ROWS) for x in range(COLS) if (x, y) not in occupied]
+        if not free:
+            return
+        kind = self._power_rng.choice(list(PowerUpType))
+        self.powerup = PowerUp(kind, self._power_rng.choice(free), 80)
+
+    def _collect_powerup(self) -> None:
+        if self.powerup is None:
+            return
+        kind = self.powerup.kind
+        if kind is PowerUpType.SLOW:
+            self.active_effects["slow"] = 60
+            self._recalculate_step_interval()
+        elif kind is PowerUpType.SHIELD:
+            self.active_effects["shield"] += 1
+        elif kind is PowerUpType.BONUS:
+            self.score += 50
+        self.powerup = None
+
     def tick(self) -> State:
         if self.state is not State.PLAYING:
             return self.state
@@ -225,31 +283,45 @@ class Game:
         if turn is not None:
             self.snake.direction = turn
 
+        if self.active_effects["slow"] > 0:
+            self.active_effects["slow"] -= 1
+            if self.active_effects["slow"] == 0:
+                self._recalculate_step_interval()
+        if self.powerup is not None:
+            self.powerup = PowerUp(
+                self.powerup.kind,
+                self.powerup.position,
+                self.powerup.ttl - 1,
+            )
+            if self.powerup.ttl <= 0:
+                self.powerup = None
+
         self.prev_body = list(self.snake.body)
         new_head = self.snake.next_head()
+
+        if self.powerup is not None and new_head == self.powerup.position:
+            self._collect_powerup()
 
         if self.wrap_around:
             new_head = (new_head[0] % COLS, new_head[1] % ROWS)
         elif not self._inside(new_head):
-            return self._finish(State.GAME_OVER)
+            return self._die_or_shield()
         growing = new_head == self.food.position
         if new_head in self.obstacles:
-            return self._finish(State.GAME_OVER)
+            return self._die_or_shield()
         tail = self.snake.tail
         if new_head in self.snake.occupied and not (new_head == tail and not growing):
-            return self._finish(State.GAME_OVER)
+            return self._die_or_shield()
         self.snake.advance(grow=growing, target=new_head)
 
         if growing:
             self.score += SCORE_PER_FOOD
             self.foods_eaten += 1
-            self.step_interval = max(
-                MIN_STEP,
-                round(self.base_step - SPEED_STEP * self.foods_eaten, 4),
-            )
+            self._recalculate_step_interval()
             self.food.spawn(self.snake.occupied | self.obstacles)
             if self.food.position is None:
                 return self._finish(State.WON)
+            self._spawn_powerup()
 
         return self.state
 

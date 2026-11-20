@@ -22,6 +22,9 @@ from snake.config import (
     COLOR_MUTED,
     COLOR_OBSTACLE,
     COLOR_PANEL,
+    COLOR_POWERUP_BONUS,
+    COLOR_POWERUP_SHIELD,
+    COLOR_POWERUP_SLOW,
     COLOR_SNAKE,
     COLOR_SNAKE_HEAD,
     COLOR_SNAKE_TAIL,
@@ -151,6 +154,9 @@ class Renderer:
             "COLOR_MUTED": COLOR_MUTED,
             "COLOR_OBSTACLE": COLOR_OBSTACLE,
             "COLOR_PANEL": COLOR_PANEL,
+            "COLOR_POWERUP_BONUS": COLOR_POWERUP_BONUS,
+            "COLOR_POWERUP_SHIELD": COLOR_POWERUP_SHIELD,
+            "COLOR_POWERUP_SLOW": COLOR_POWERUP_SLOW,
             "COLOR_SNAKE": COLOR_SNAKE,
             "COLOR_SNAKE_HEAD": COLOR_SNAKE_HEAD,
             "COLOR_SNAKE_TAIL": COLOR_SNAKE_TAIL,
@@ -709,6 +715,7 @@ class Renderer:
     def _draw_board(self, game: Game, alpha: float) -> None:
         self.screen.blit(self.board_bg, (0, BOARD_TOP))
         self._draw_obstacles(game)
+        self._draw_powerup(game)
         self._draw_food(game)
         self._draw_snake(game, clamp(alpha))
 
@@ -717,6 +724,28 @@ class Renderer:
             rect = pygame.Rect(x * CELL + 3, BOARD_TOP + y * CELL + 3, CELL - 6, CELL - 6)
             pygame.draw.rect(self.screen, self.c("COLOR_OBSTACLE"), rect, border_radius=6)
             pygame.draw.rect(self.screen, (70, 90, 105), rect, width=1, border_radius=6)
+
+    def _draw_powerup(self, game: Game) -> None:
+        if game.powerup is None:
+            return
+        x, y = game.powerup.position
+        center = (x * CELL + CELL // 2, BOARD_TOP + y * CELL + CELL // 2)
+        colors = {
+            "slow": self.c("COLOR_POWERUP_SLOW"),
+            "shield": self.c("COLOR_POWERUP_SHIELD"),
+            "bonus": self.c("COLOR_POWERUP_BONUS"),
+        }
+        color = colors.get(game.powerup.kind.value, self.c("COLOR_ACCENT"))
+        pulse = 8 + (2 * math.sin(self.now * 5.0) if not self.settings.reduced_motion else 0)
+        pygame.draw.circle(self.screen, color, center, int(pulse))
+        pygame.draw.circle(self.screen, self.c("COLOR_BG"), center, max(2, int(pulse) - 4))
+        self._draw_text(
+            game.powerup.kind.value[0].upper(),
+            self.font_tiny,
+            color,
+            center,
+            anchor="center",
+        )
 
     def _draw_food(self, game: Game) -> None:
         if game.food.position is None:
@@ -792,12 +821,26 @@ class Renderer:
         self._draw_text("BEST", self.font_hud_label, self.c("COLOR_MUTED"), (174, 14), alpha=230)
         self._draw_text(str(game.high_score), self.font_hud_value, self.c("COLOR_TEXT"), (174, 28))
 
+        effects = []
+        if game.active_effects["slow"] > 0:
+            effects.append(f"SLOW {game.active_effects['slow']}")
+        if game.active_effects["shield"] > 0:
+            effects.append(f"SHIELD x{game.active_effects['shield']}")
+        if effects:
+            self._draw_text(
+                "  ".join(effects),
+                self.font_hud_hint,
+                self.c("COLOR_ACCENT"),
+                (WINDOW_W - 24, 16),
+                anchor="midright",
+            )
+
         hint = "P / Esc   Pause" if game.state is State.PLAYING else ""
         if hint:
             self._draw_text(
                 hint,
                 self.font_hud_hint,
-                COLOR_MUTED,
+                self.c("COLOR_MUTED"),
                 (WINDOW_W - 24, 42),
                 anchor="midright",
             )
